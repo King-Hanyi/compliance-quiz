@@ -1380,9 +1380,9 @@ function renderQuestion(el, questions, index, isExam) {
     confirmBtn = `<button class="btn-confirm-multi ${selectedOptions.size > 0 ? 'show' : ''}" id="confirmBtn" onclick="confirmMulti()">确认提交 (${selectedOptions.size}项)</button>`;
   }
 
-  // Navigation grid for practice mode
+  // Navigation grid for practice mode (not shown in random mode)
   let gridHTML = '';
-  if (!isExam && questions.length > 1) {
+  if (!isExam && questions.length > 1 && currentPage !== 'random') {
     gridHTML = '<div class="q-grid">' + questions.map((qq, i) => {
       let gcls = '';
       if (i === index) gcls = 'current';
@@ -1865,8 +1865,8 @@ function renderOpenPage(el) {
     return;
   }
 
-  // 切换题型时重置
-  if (!openQuestions[openIndex]) openIndex = 0;
+  // 保证 openIndex 合法
+  if (openIndex >= openQuestions.length) openIndex = 0;
 
   const q = openQuestions[openIndex];
   const typeLabel = type === 'short' ? '简答题' : '案例分析';
