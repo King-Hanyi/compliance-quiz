@@ -1206,7 +1206,7 @@ function renderDashboard(el) {
     <div class="fade-in">
       <h2 style="margin-bottom:20px;font-size:22px;font-weight:700;">学习总览</h2>
       <div class="dash-grid">
-        <div class="dash-card accent"><div class="num">${QUESTIONS.length}</div><div class="label">总题数</div></div>
+        <div class="dash-card accent"><div class="num">${QUESTIONS.length + OPEN_QUESTIONS.length}</div><div class="label">总题数</div></div>
         <div class="dash-card green"><div class="num">${s.total}</div><div class="label">已做题</div></div>
         <div class="dash-card"><div class="num" style="color:var(--green)">${s.rate}%</div><div class="label">正确率</div></div>
         <div class="dash-card red"><div class="num">${s.wrong}</div><div class="label">错题数</div></div>
@@ -1217,6 +1217,12 @@ function renderDashboard(el) {
         ${renderProgressRow('单选题', ss, 'single')}
         ${renderProgressRow('多选题', ms, 'multi')}
         ${renderProgressRow('判断题', js, 'judgment')}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);margin-top:8px;font-size:14px;color:var(--text2);">
+          <span>简答题</span><span>${OPEN_QUESTIONS.filter(q=>q.type==='short').length} 题</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:14px;color:var(--text2);">
+          <span>案例分析</span><span>${OPEN_QUESTIONS.filter(q=>q.type==='case').length} 题</span>
+        </div>
       </div>
       
       <div class="card">
@@ -1843,7 +1849,8 @@ function renderSettings(el) {
         <h3 style="font-size:15px;font-weight:600;margin-bottom:8px;">关于</h3>
         <div style="font-size:14px;color:var(--text2);line-height:1.8;">
           <p>《个人信息保护合规审计人员-初中高级题库》刷题系统</p>
-          <p>题库：单选 ${SINGLE.length} 题 · 多选 ${MULTI.length} 题 · 判断 ${JUDGMENT.length} 题 · 共 ${QUESTIONS.length} 题</p>
+          <p>题库：单选 ${SINGLE.length} 题 · 多选 ${MULTI.length} 题 · 判断 ${JUDGMENT.length} 题 · 简答 ${OPEN_QUESTIONS.filter(q=>q.type==='short').length} 题 · 案例 ${OPEN_QUESTIONS.filter(q=>q.type==='case').length} 题</p>
+          <p>客观题共 ${QUESTIONS.length} 题 · 主观题共 ${OPEN_QUESTIONS.length} 题 · 合计 ${QUESTIONS.length + OPEN_QUESTIONS.length} 题</p>
         </div>
       </div>
     </div>
@@ -1912,6 +1919,12 @@ function renderOpenPage(el) {
         <button class="btn btn-secondary" onclick="openNav(-1)" ${openIndex === 0 ? 'disabled' : ''}>← 上一题</button>
         <button class="btn btn-primary" onclick="openNav(1)" ${openIndex === total - 1 ? 'disabled' : ''}>下一题 →</button>
       </div>
+
+      <div class="q-grid">
+        ${openQuestions.map((_, i) => `
+          <div class="q-grid-item ${i === openIndex ? 'current' : ''}" onclick="openGoTo(${i})">${i + 1}</div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
@@ -1924,6 +1937,13 @@ function toggleOpen(type) {
 
 function openNav(dir) {
   openIndex = Math.max(0, Math.min(openQuestions.length - 1, openIndex + dir));
+  openHintVisible = false;
+  openAnswerVisible = false;
+  render();
+}
+
+function openGoTo(i) {
+  openIndex = i;
   openHintVisible = false;
   openAnswerVisible = false;
   render();
