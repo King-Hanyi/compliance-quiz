@@ -604,8 +604,11 @@ body {
       <div class="nav-item" onclick="switchPage('random')" data-page="random">
         <span class="icon">🎲</span> 随机练习
       </div>
-      <div class="nav-item" onclick="switchPage('open')" data-page="open">
-        <span class="icon">📖</span> 简答 & 案例
+      <div class="nav-item" onclick="switchPage('open','short')" data-page="open-short">
+        <span class="icon">✍️</span> 简答题 <span class="badge" id="badge-short">0</span>
+      </div>
+      <div class="nav-item" onclick="switchPage('open','case')" data-page="open-case">
+        <span class="icon">📂</span> 案例分析 <span class="badge" id="badge-case">0</span>
       </div>
     </div>
     <div class="nav-group">
@@ -1140,6 +1143,8 @@ function updateHeaderStats() {
   document.getElementById('badge-judge').textContent = JUDGMENT.length;
   document.getElementById('badge-wrong').textContent = state.wrong.length;
   document.getElementById('badge-fav').textContent = state.favorites.length;
+  document.getElementById('badge-short').textContent = OPEN_QUESTIONS.filter(q=>q.type==='short').length;
+  document.getElementById('badge-case').textContent = OPEN_QUESTIONS.filter(q=>q.type==='case').length;
 }
 
 function toggleMobileMenu() {
@@ -1148,6 +1153,12 @@ function toggleMobileMenu() {
 
 // ==================== NAVIGATION ====================
 function switchPage(page, type) {
+  // 切换 open 题型时重置 openIndex
+  if (page === 'open' && type !== currentType) {
+    openIndex = 0;
+    openHintVisible = false;
+    openAnswerVisible = false;
+  }
   currentPage = page;
   currentType = type || null;
   currentIndex = 0;
@@ -1177,7 +1188,7 @@ function render() {
   else if (currentPage === 'wrong') renderWrong(main);
   else if (currentPage === 'fav') renderFavorites(main);
   else if (currentPage === 'settings') renderSettings(main);
-  else if (currentPage === 'open') renderOpenPage();
+  else if (currentPage === 'open') renderOpenPage(main);
   else if (currentPage === 'examActive') renderExamActive(main);
   else if (currentPage === 'examResult') renderExamResult(main);
 
@@ -1258,7 +1269,8 @@ function renderPractice(el) {
 }
 
 function renderRandom(el) {
-  if (!currentQuestions.length || currentPage === 'random' && currentIndex === 0) {
+  if (!currentQuestions.length || currentIndex === 0) {
+    // 只从单选+多选+判断中随机抽题
     currentQuestions = [...QUESTIONS].sort(() => Math.random() - 0.5);
   }
   renderQuestion(el, currentQuestions, currentIndex, false);
@@ -1526,9 +1538,9 @@ function renderExam(el) {
       <div class="card">
         <h3 style="font-size:16px;font-weight:600;margin-bottom:16px;">考试说明</h3>
         <div style="font-size:14px;color:var(--text2);line-height:2;">
-          <p>• 随机抽取 50 道题（单选30 + 多选15 + 判断5）</p>
+          <p>• 随机抽取 42 道题（单选30 + 多选8 + 判断4）</p>
           <p>• 单选题 2 分/题，多选题 4 分/题，判断题 2 分/题</p>
-          <p>• 总分 130 分，考试时间 60 分钟</p>
+          <p>• 满分 100 分，考试时间 60 分钟</p>
           <p>• 考试过程中不显示答案，交卷后统一批改</p>
         </div>
         <div style="margin-top:24px;">
@@ -1542,8 +1554,8 @@ function renderExam(el) {
 function startExam() {
   // Random select questions
   const shuffled_s = [...SINGLE].sort(() => Math.random() - 0.5).slice(0, 30);
-  const shuffled_m = [...MULTI].sort(() => Math.random() - 0.5).slice(0, 15);
-  const shuffled_j = [...JUDGMENT].sort(() => Math.random() - 0.5).slice(0, 5);
+  const shuffled_m = [...MULTI].sort(() => Math.random() - 0.5).slice(0, 8);
+  const shuffled_j = [...JUDGMENT].sort(() => Math.random() - 0.5).slice(0, 4);
   
   examQuestions = [...shuffled_s, ...shuffled_m, ...shuffled_j];
   examIndex = 0;
@@ -1760,7 +1772,7 @@ function renderExamResult(el) {
   el.innerHTML = `
     <div class="fade-in exam-result">
       <div class="exam-score">${result.score}</div>
-      <div class="exam-score-label">总分 ${result.totalPossible} · 正确率 ${pct}%</div>
+      <div class="exam-score-label">满分 100 分 · 正确率 ${pct}%</div>
       
       <div class="exam-detail-grid" style="margin-top:32px;">
         <div class="dash-card">
@@ -1839,53 +1851,82 @@ function renderSettings(el) {
 }
 
 // ==================== OPEN QUESTIONS PAGE ====================
-function renderOpenPage() {
-  const shorts = OPEN_QUESTIONS.filter(q => q.type === 'short');
-  const cases = OPEN_QUESTIONS.filter(q => q.type === 'case');
+let openQuestions = [];
+let openIndex = 0;
+let openHintVisible = false;
+let openAnswerVisible = false;
 
-  const renderSection = (list, title, icon) => `
-    <div class="card" style="margin-bottom:24px">
-      <h2 style="font-size:17px;font-weight:700;margin-bottom:18px;color:var(--accent)">${icon} ${title}（${list.length} 题）</h2>
-      ${list.map((q, i) => `
-        <div class="open-item" id="open-${q.id}">
-          <div class="open-qnum">${title.replace(/（.*）/,'')} ${i + 1}</div>
-          <div class="open-question">${q.question.replace(/\n/g, '<br>')}</div>
-          <div class="open-actions">
-            <button class="open-btn hint-btn" onclick="toggleOpenBlock('hint-${q.id}', this)">💡 关键提示</button>
-            <button class="open-btn answer-btn" onclick="toggleOpenBlock('answer-${q.id}', this)">📋 查看答案</button>
-          </div>
-          <div class="open-block" id="hint-${q.id}" style="display:none">
-            <div class="open-block-label">💡 关键提示</div>
-            <div class="open-block-content">${q.hint.replace(/\n/g, '<br>')}</div>
-          </div>
-          <div class="open-block answer-block" id="answer-${q.id}" style="display:none">
-            <div class="open-block-label">📋 参考答案</div>
-            <div class="open-block-content">${q.answer.replace(/\n/g, '<br>')}</div>
-          </div>
+function renderOpenPage(el) {
+  const type = currentType; // 'short' or 'case'
+  openQuestions = OPEN_QUESTIONS.filter(q => q.type === type);
+
+  if (openQuestions.length === 0) {
+    el.innerHTML = '<div class="card">暂无题目</div>';
+    return;
+  }
+
+  // 切换题型时重置
+  if (!openQuestions[openIndex]) openIndex = 0;
+
+  const q = openQuestions[openIndex];
+  const typeLabel = type === 'short' ? '简答题' : '案例分析';
+  const total = openQuestions.length;
+
+  el.innerHTML = `
+    <div class="fade-in">
+      <div class="q-header">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="q-tag ${type === 'short' ? 'single' : 'multi'}">${typeLabel}</span>
+          <span class="q-num">${openIndex + 1} / ${total}</span>
         </div>
-      `).join('')}
-    </div>
-  `;
+      </div>
 
-  document.getElementById('main-content').innerHTML = `
-    <h1 style="font-size:20px;font-weight:700;margin-bottom:20px">📖 简答题 & 案例分析</h1>
-    ${renderSection(shorts, '简答题', '✍️')}
-    ${renderSection(cases, '案例分析题', '📂')}
+      <div class="card" style="margin-bottom:16px;">
+        <div class="open-question">${q.question.replace(/\n/g, '<br>')}</div>
+
+        <div class="open-actions" style="margin-top:16px;">
+          <button class="open-btn hint-btn ${openHintVisible ? 'active' : ''}"
+            onclick="toggleOpen('hint')">
+            ${openHintVisible ? '💡 收起提示' : '💡 关键提示'}
+          </button>
+          <button class="open-btn answer-btn ${openAnswerVisible ? 'active' : ''}"
+            onclick="toggleOpen('answer')">
+            ${openAnswerVisible ? '📋 收起答案' : '📋 查看答案'}
+          </button>
+        </div>
+
+        ${openHintVisible ? `
+        <div class="open-block" style="margin-top:12px;">
+          <div class="open-block-label">💡 关键提示</div>
+          <div class="open-block-content">${q.hint.replace(/\n/g, '<br>')}</div>
+        </div>` : ''}
+
+        ${openAnswerVisible ? `
+        <div class="open-block answer-block" style="margin-top:12px;">
+          <div class="open-block-label">📋 参考答案</div>
+          <div class="open-block-content">${q.answer.replace(/\n/g, '<br>')}</div>
+        </div>` : ''}
+      </div>
+
+      <div class="nav-btns">
+        <button class="btn btn-secondary" onclick="openNav(-1)" ${openIndex === 0 ? 'disabled' : ''}>← 上一题</button>
+        <button class="btn btn-primary" onclick="openNav(1)" ${openIndex === total - 1 ? 'disabled' : ''}>下一题 →</button>
+      </div>
+    </div>
   `;
 }
 
-function toggleOpenBlock(blockId, btn) {
-  const el = document.getElementById(blockId);
-  const isHint = blockId.startsWith('hint-');
-  if (el.style.display === 'none') {
-    el.style.display = 'block';
-    btn.classList.add('active');
-    btn.textContent = isHint ? '💡 收起提示' : '📋 收起答案';
-  } else {
-    el.style.display = 'none';
-    btn.classList.remove('active');
-    btn.textContent = isHint ? '💡 关键提示' : '📋 查看答案';
-  }
+function toggleOpen(type) {
+  if (type === 'hint') openHintVisible = !openHintVisible;
+  else openAnswerVisible = !openAnswerVisible;
+  render();
+}
+
+function openNav(dir) {
+  openIndex = Math.max(0, Math.min(openQuestions.length - 1, openIndex + dir));
+  openHintVisible = false;
+  openAnswerVisible = false;
+  render();
 }
 
 function clearAnswers() {
